@@ -1,0 +1,92 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  USER
+  STAFF
+  MODERATOR
+}
+
+model Tenant {
+  id        String   @id @default(uuid())
+  name      String
+  domain    String?  @unique
+  isActive  Boolean  @default(true)
+  users     User[]
+  auditLogs AuditLog[]
+  profiles  Profile[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("tenants")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  password     String
+  role         Role     @default(USER)
+  refreshToken String?
+  isActive     Boolean   @default(false)
+  auditLogs    AuditLog[]
+  profile      Profile?
+  
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([isActive])
+  @@index([deletedAt])
+  @@index([tenantId])
+  @@map("users")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  action    String   // e.g., 'CREATE_USER', 'DELETE_PROFILE'
+  resource  String   // e.g., 'User', 'Profile'
+  payload   Json?    // Değişiklik yapılan veri
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  user      User?    @relation(fields: [userId], references: [id])
+  
+  tenantId  String?
+  tenant    Tenant?   @relation(fields: [tenantId], references: [id])
+
+
+  @@index([userId])
+  @@index([action])
+  @@index([tenantId])
+  @@map("audit_logs")
+}
+
+model Profile {
+  ID       String  @id @default(uuid())
+  name     String?
+  lastName String?
+  bio      String?
+  avatar   String?
+
+  // Foreign Key: User tablosuna bağlanıyoruz
+  userID String @unique
+  user   User   @relation(fields: [userID], references: [id], onDelete: Cascade)
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+  @@map("profiles")
+}
+

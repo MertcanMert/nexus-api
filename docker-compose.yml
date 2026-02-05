@@ -1,0 +1,56 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:14
+    container_name: nexus-postgres
+    environment:
+      POSTGRES_DB: postgres_test
+      POSTGRES_USER: myuser
+      POSTGRES_PASSWORD: mypassword
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U myuser -d postgres_test']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache
+  redis:
+    image: redis:6-alpine
+    container_name: nexus-redis
+    ports:
+      - '6379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # NexusAPI Application
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.nestjs
+    container_name: nexus-api
+    ports:
+      - '3000:3000'
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://myuser:mypassword@postgres:5432/postgres_test
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - JWT_SECRET=TopSecretJwtKey32CharsLongMinimum!
+      - JWT_REFRESH_SECRET=DifferentSecretJwtRefreshKey32CharsLong!
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
